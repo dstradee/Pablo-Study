@@ -11,7 +11,11 @@
   <div class="shell">
     <header class="topbar">
       <a class="brand" href="#">PABLO <span>STUDY</span></a>
-      <div class="system-status"><i></i> Modo local</div>
+      <div class="top-actions">
+        <div class="system-status" id="systemStatus"><i></i> Conectando…</div>
+        <button class="account-button hidden" id="accountButton"></button>
+        <button class="ghost small hidden" id="logoutBtn">Cerrar sesión</button>
+      </div>
     </header>
 
     <main class="app">
@@ -37,10 +41,7 @@
 
       <section class="section-block">
         <div class="section-head">
-          <div>
-            <p class="label">ORGANIZACIÓN</p>
-            <h2 class="section-title">Mis asignaturas</h2>
-          </div>
+          <div><p class="label">ORGANIZACIÓN</p><h2 class="section-title">Mis asignaturas</h2></div>
           <button class="ghost" id="addSubject">+ Añadir</button>
         </div>
         <div id="subjects" class="subject-grid"></div>
@@ -58,7 +59,7 @@
         </div>
 
         <div class="card plan-card">
-          <div class="section-head compact"><div><p class="label">PLAN DE ESTUDIO</p><h2 class="section-title">Calendario</h2></div><span class="coming">Próximamente</span></div>
+          <div class="section-head compact"><div><p class="label">PLAN DE ESTUDIO</p><h2 class="section-title">Calendario</h2></div><span class="coming">Siguiente fase</span></div>
           <p>El calendario se generará automáticamente a partir de tus días disponibles, exámenes, progreso y dificultad de los temas.</p>
           <div class="calendar-placeholder"><span>◷</span><div><strong>Plan automático</strong><small>No tendrás que crear sesiones una por una.</small></div></div>
         </div>
@@ -74,6 +75,25 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <div class="modal-backdrop hidden" id="authModal">
+    <div class="modal auth-modal" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <div><p class="label">PABLO STUDY</p><h2 id="authTitle">Entrar en tu cuenta</h2></div>
+        <button class="close" id="closeAuth" aria-label="Cerrar">×</button>
+      </div>
+      <p class="auth-intro">Tus asignaturas y PDFs se guardarán de forma privada en tu cuenta.</p>
+      <form id="authForm">
+        <label class="field">Email<input id="authEmail" type="email" autocomplete="email" required placeholder="tu@email.com"></label>
+        <label class="field">Contraseña<input id="authPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="Mínimo 6 caracteres"></label>
+        <div class="form-error hidden" id="authError"></div>
+        <div class="modal-actions auth-actions">
+          <button type="button" class="ghost" id="switchAuth">Crear cuenta</button>
+          <button type="submit" class="primary" id="authSubmit">Entrar</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <div class="modal-backdrop hidden" id="modalBackdrop">
@@ -93,13 +113,15 @@
           <label class="field hidden" id="customDurationWrap">Minutos personalizados<input id="customDuration" type="number" min="30" max="360" step="5" value="105"></label>
         </div>
         <fieldset class="field days-field"><legend>Días disponibles <small>(elige exactamente 2)</small></legend><div class="days" id="days"></div></fieldset>
-        <div class="upload-box" id="uploadBox"><input id="pdf" type="file" accept="application/pdf" hidden><button type="button" class="upload-button" id="uploadBtn">↑ Seleccionar PDF</button><div><strong id="fileName">Ningún PDF seleccionado</strong><small>El archivo no se subirá a GitHub. En esta versión solo se guarda su referencia local.</small></div></div>
+        <div class="upload-box" id="uploadBox"><input id="pdf" type="file" accept="application/pdf" hidden><button type="button" class="upload-button" id="uploadBtn">↑ Seleccionar PDF</button><div><strong id="fileName">Ningún PDF seleccionado</strong><small>El PDF se guardará en el almacenamiento privado de Supabase, nunca en GitHub.</small></div></div>
         <div class="form-error hidden" id="formError"></div>
         <div class="modal-actions"><button type="button" class="ghost" id="cancelBtn">Cancelar</button><button type="submit" class="primary" id="saveBtn">Guardar asignatura</button></div>
       </form>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
