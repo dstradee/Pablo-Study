@@ -36,7 +36,7 @@
             <p>Cuando conectemos el planificador inteligente, aquí aparecerá automáticamente lo que tienes que estudiar.</p>
           </div>
         </div>
-        <button class="secondary" id="startBtn">Configurar estudio</button>
+        <button class="secondary" id="startBtn">Ver plan</button>
       </section>
 
       <section class="section-block">
@@ -59,9 +59,9 @@
         </div>
 
         <div class="card plan-card">
-          <div class="section-head compact"><div><p class="label">PLAN DE ESTUDIO</p><h2 class="section-title">Calendario</h2></div><span class="coming">Siguiente fase</span></div>
-          <p>El calendario se generará automáticamente a partir de tus días disponibles, exámenes, progreso y dificultad de los temas.</p>
-          <div class="calendar-placeholder"><span>◷</span><div><strong>Plan automático</strong><small>No tendrás que crear sesiones una por una.</small></div></div>
+          <div class="section-head compact"><div><p class="label">PLAN SEMANAL</p><h2 class="section-title">Tu semana</h2></div><span class="coming">Fijo</span></div>
+          <p><strong>2 horas el lunes + 2 horas el jueves.</strong> Son 4 horas de estudio en total por semana, compartidas entre todas tus asignaturas.</p>
+          <div class="calendar-placeholder"><span>◷</span><div><strong>Lunes · 120 min</strong><small>Jueves · 120 min · El sistema reparte el tiempo entre asignaturas.</small></div></div>
         </div>
       </section>
 
@@ -88,10 +88,7 @@
         <label class="field">Email<input id="authEmail" type="email" autocomplete="email" required placeholder="tu@email.com"></label>
         <label class="field">Contraseña<input id="authPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="Mínimo 6 caracteres"></label>
         <div class="form-error hidden" id="authError"></div>
-        <div class="modal-actions auth-actions">
-          <button type="button" class="ghost" id="switchAuth">Crear cuenta</button>
-          <button type="submit" class="primary" id="authSubmit">Entrar</button>
-        </div>
+        <div class="modal-actions auth-actions"><button type="button" class="ghost" id="switchAuth">Crear cuenta</button><button type="submit" class="primary" id="authSubmit">Entrar</button></div>
       </form>
     </div>
   </div>
@@ -109,11 +106,19 @@
           <label class="field">Fecha del examen<input id="examDate" type="date" required></label>
           <label class="field">Tema inicial<input id="startTopic" type="text" placeholder="Tema 1" required maxlength="50"></label>
           <label class="field">Tema final<input id="endTopic" type="text" placeholder="Tema 8" required maxlength="50"></label>
-          <label class="field">Duración de sesión<select id="duration"><option value="90">90 minutos</option><option value="105" selected>105 minutos</option><option value="120">120 minutos</option><option value="custom">Personalizada</option></select></label>
-          <label class="field hidden" id="customDurationWrap">Minutos personalizados<input id="customDuration" type="number" min="30" max="360" step="5" value="105"></label>
         </div>
-        <fieldset class="field days-field"><legend>Días disponibles <small>(elige exactamente 2)</small></legend><div class="days" id="days"></div></fieldset>
-        <div class="upload-box" id="uploadBox"><input id="pdf" type="file" accept="application/pdf" hidden><button type="button" class="upload-button" id="uploadBtn">↑ Seleccionar PDF</button><div><strong id="fileName">Ningún PDF seleccionado</strong><small>El PDF se guardará en el almacenamiento privado de Supabase, nunca en GitHub.</small></div></div>
+
+        <div class="week-rule">
+          <div><strong>Plan semanal fijo</strong><span>2 horas totales el lunes + 2 horas totales el jueves.</span></div>
+          <b>L · 120 min</b><b>J · 120 min</b>
+        </div>
+
+        <div class="upload-box" id="uploadBox">
+          <input id="pdf" type="file" accept="application/pdf" hidden>
+          <button type="button" class="upload-button" id="uploadBtn">↑ Seleccionar PDF</button>
+          <div><strong id="fileName">Ningún PDF seleccionado</strong><small>Los PDF grandes se guardan automáticamente en partes privadas. Tú sigues teniendo un único PDF.</small></div>
+        </div>
+        <div class="upload-progress hidden" id="uploadProgress"><div><span id="uploadProgressText">Preparando subida…</span><b id="uploadProgressPct">0%</b></div><div class="progress"><div id="uploadProgressBar"></div></div></div>
         <div class="form-error hidden" id="formError"></div>
         <div class="modal-actions"><button type="button" class="ghost" id="cancelBtn">Cancelar</button><button type="submit" class="primary" id="saveBtn">Guardar asignatura</button></div>
       </form>
