@@ -12,48 +12,29 @@
   function esc2(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function list(items){return `<ul>${(items||[]).map(x=>`<li>${esc2(x)}</li>`).join('')}</ul>`;}
   async function getPdfBlob(subject){
-    if(subject.pdf_chunks?.length){
-      const parts=[];const ordered=[...subject.pdf_chunks].sort((a,b)=>a.index-b.index);
-      for(const p of ordered){const r=await state.sb.storage.from('study-pdfs').download(p.path);if(r.error)throw r.error;parts.push(await r.data.arrayBuffer());}
-      return new Blob(parts,{type:'application/pdf'});
-    }
-    if(subject.pdf_path){const r=await state.sb.storage.from('study-pdfs').download(subject.pdf_path);if(r.error)throw r.error;return r.data;}
+    if(subject.pdf_chunks?.length){const parts=[];const ordered=[...subject.pdf_chunks].sort((a,b)=>a.index-b.index);for(const p of ordered){const r=await state.sb.storage.from('study-pdfs').download(p.path);if(r.error)throw new Error('No se pudo descargar el PDF: '+r.error.message);parts.push(await r.data.arrayBuffer());}return new Blob(parts,{type:'application/pdf'});}
+    if(subject.pdf_path){const r=await state.sb.storage.from('study-pdfs').download(subject.pdf_path);if(r.error)throw new Error('No se pudo descargar el PDF: '+r.error.message);return r.data;}
     throw new Error('Esta asignatura no tiene PDF guardado.');
   }
   async function extractPdf(blob){
     if(!window.pdfjsLib)throw new Error('No se ha cargado el lector PDF. Recarga la página e inténtalo de nuevo.');
-    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await blob.arrayBuffer())}).promise;
-    let text='';
-    for(let i=1;i<=pdf.numPages;i++){
-      const page=await pdf.getPage(i);const content=await page.getTextContent();
-      const pageText=content.items.map(x=>x.str||'').join(' ').replace(/\s+/g,' ').trim();
-      if(pageText)text+=`\n\n[PÁGINA ${i}]\n${pageText}`;
-      if(i%10===0)progress(Math.min(70,Math.round(i/pdf.numPages*70)));
-    }
-    if(!text.trim())throw new Error('No he podido extraer texto de este PDF. Si es un PDF escaneado necesitaremos OCR.');
-    return text.slice(0,180000);
+    const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await blob.arrayBuffer())}).promise;let text='';
+    for(let i=1;i<=pdf.numPages;i++){const page=await pdf.getPage(i);const content=await page.getTextContent();const pageText=content.items.map(x=>x.str||'').join(' ').replace(/\s+/g,' ').trim();if(pageText)text+=`\n\n[PÁGINA ${i}]\n${pageText}`;if(i%10===0)progress(Math.min(70,Math.round(i/pdf.numPages*70)));}
+    if(!text.trim())throw new Error('No he podido extraer texto de este PDF. Si es un PDF escaneado necesitaremos OCR.');return text.slice(0,180000);
   }
   async function prepare(session){
-    const subject=state.subjects.find(s=>s.id===session.subject_id);if(!subject)return;
-    modal.hidden=false;document.body.style.overflow='hidden';title.textContent=subject.name;meta.textContent=`${new Date(session.scheduled_for).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})} · ${session.duration_minutes} min`;
-    showLoading('Descargando tu PDF privado…');progress(5);
+    const subject=state.subjects.find(s=>s.id===session.subject_id);if(!subject)return;modal.hidden=false;document.body.style.overflow='hidden';title.textContent=subject.name;meta.textContent=`${new Date(session.scheduled_for).toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})} · ${session.duration_minutes} min`;showLoading('Descargando tu PDF privado…');progress(5);
     try{
-      const blob=await getPdfBlob(subject);progress(15);
-      body.querySelector('.ai-status').textContent='Leyendo páginas del PDF…';
-      const text=await extractPdf(blob);progress(75);
-      body.querySelector('.ai-status').textContent='Gemini está preparando exactamente lo que debes aprender hoy…';
-      const {data,error}=await state.sb.functions.invoke('study-ai',{body:{text,subject:subject.name,session_date:session.scheduled_for,duration_minutes:session.duration_minutes}});
-      if(error)throw error;if(data?.error)throw new Error(data.error);if(!data?.result)throw new Error('La IA no devolvió una sesión válida.');
-      progress(100);const r=data.result;
-      const saved=await state.sb.from('study_sessions').update({ai_content:r,ai_generated_at:new Date().toISOString()}).eq('id',session.id).eq('user_id',state.user.id);
-      if(saved.error)console.warn('No se pudo guardar el contenido IA:',saved.error);
+      const blob=await getPdfBlob(subject);progress(15);body.querySelector('.ai-status').textContent='Leyendo páginas del PDF…';const text=await extractPdf(blob);progress(75);body.querySelector('.ai-status').textContent='Gemini está preparando exactamente lo que debes aprender hoy…';
+      let response;
+      try{response=await fetch(`${state.sb.supabaseUrl}/functions/v1/study-ai`,{method:'POST',headers:{'Content-Type':'application/json',apikey:state.sb.supabaseKey,Authorization:`Bearer ${(await state.sb.auth.getSession()).data.session?.access_token||''}`},body:JSON.stringify({text,subject:subject.name,session_date:session.scheduled_for,duration_minutes:session.duration_minutes})});}catch(networkError){throw new Error('No se puede conectar con el servidor de IA. Comprueba que la función study-ai esté activa en Supabase.');}
+      const raw=await response.text();let data=null;try{data=raw?JSON.parse(raw):null;}catch(_){data={error:raw};}if(!response.ok)throw new Error(data?.error||`Error de IA (${response.status})`);if(data?.error)throw new Error(data.error);if(!data?.result)throw new Error('La IA no devolvió una sesión válida.');
+      progress(100);const r=data.result;const saved=await state.sb.from('study_sessions').update({ai_content:r,ai_generated_at:new Date().toISOString()}).eq('id',session.id).eq('user_id',state.user.id);if(saved.error)console.warn('No se pudo guardar el contenido IA:',saved.error);
       body.innerHTML=`<div class="ai-summary"><h3>Qué tienes que aprender</h3><p>${esc2(r.summary)}</p></div><div class="ai-grid"><div class="ai-box"><h3>🎯 Objetivos</h3>${list(r.objectives)}</div><div class="ai-box"><h3>🧠 Conceptos clave</h3>${list(r.key_concepts)}</div><div class="ai-box ai-full"><h3>⏱️ Plan de ${session.duration_minutes} minutos</h3>${list(r.study_steps)}</div><div class="ai-box ai-full"><h3>🔁 Comprueba que lo sabes</h3><div class="ai-questions">${(r.active_recall_questions||[]).map((q,i)=>`<div class="ai-q"><b>${i+1}.</b> ${esc2(q)}</div>`).join('')}</div></div></div><div class="ai-status"><b>Páginas:</b> ${esc2(r.pages)} · <b>Dificultad:</b> ${esc2(r.estimated_difficulty)}</div>`;
       session.ai_content=r;session.ai_generated_at=new Date().toISOString();
     }catch(e){console.error(e);body.innerHTML=`<div class="ai-status ai-error"><b>No he podido preparar la sesión.</b><br>${esc2(e.message||e)}</div><p>La sesión se puede cerrar con la X, haciendo clic fuera de la ventana o pulsando Escape.</p>`;}
   }
   function startCurrent(){const s=state.sessions.filter(x=>x.status==='planned').sort((a,b)=>new Date(a.scheduled_for)-new Date(b.scheduled_for))[0];if(s)prepare(s);else toast('No hay ninguna sesión preparada.');}
-  function wire(){
-    const btn=document.getElementById('startBtn');if(btn&&!btn.dataset.aiWired){btn.dataset.aiWired='1';btn.textContent='Preparar sesión';btn.onclick=function(e){e.preventDefault();startCurrent();};}
-  }
+  function wire(){const btn=document.getElementById('startBtn');if(btn&&!btn.dataset.aiWired){btn.dataset.aiWired='1';btn.textContent='Preparar sesión';btn.onclick=function(e){e.preventDefault();startCurrent();};}}
   setInterval(wire,800);wire();
 })();
