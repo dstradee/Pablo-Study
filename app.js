@@ -1,39 +1,135 @@
-const KEY='pabloStudySubjects';
 const DAY_NAMES=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 const DAY_SHORT=['L','M','X','J','V','S','D'];
+const STUDY_DAYS=[1,4]; // JS: Monday=1, Thursday=4
+const DAILY_MINUTES=120;
+const LARGE_FILE_LIMIT=50*1024*1024;
+const CHUNK_SIZE=40*1024*1024; // stays safely below Supabase Free's 50 MB per-file limit
 const $=id=>document.getElementById(id);
-const state={subjects:[],settings:{studyDays:[],defaultDuration:105},editingId:null,selectedPdf:null,user:null,sb:null,mode:'supabase',signup:false};
-const E={subjects:$('subjects'),next:$('nextSession'),bar:$('progressBar'),pct:$('progressText'),studied:$('studiedCount'),pending:$('pendingCount'),exams:$('examCount'),modal:$('modalBackdrop'),form:$('subjectForm'),title:$('modalTitle'),id:$('subjectId'),name:$('name'),exam:$('examDate'),start:$('startTopic'),end:$('endTopic'),duration:$('duration'),customWrap:$('customDurationWrap'),custom:$('customDuration'),days:$('days'),pdf:$('pdf'),fileName:$('fileName'),error:$('formError'),save:$('saveBtn'),status:$('systemStatus'),account:$('accountButton'),logout:$('logoutBtn'),auth:$('authModal'),authForm:$('authForm'),email:$('authEmail'),password:$('authPassword'),authError:$('authError'),authTitle:$('authTitle'),authSubmit:$('authSubmit'),switchAuth:$('switchAuth')};
-function esc(v){return String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));}
+const state={subjects:[],sessions:[],settings:{weekday_1:1,weekday_2:4,default_session_minutes:120},editingId:null,selectedPdf:null,user:null,sb:null,signup:false};
+const E={subjects:$('subjects'),next:$('nextSession'),bar:$('progressBar'),pct:$('progressText'),studied:$('studiedCount'),pending:$('pendingCount'),exams:$('examCount'),modal:$('modalBackdrop'),form:$('subjectForm'),title:$('modalTitle'),id:$('subjectId'),name:$('name'),exam:$('examDate'),start:$('startTopic'),end:$('endTopic'),pdf:$('pdf'),fileName:$('fileName'),error:$('formError'),save:$('saveBtn'),status:$('systemStatus'),account:$('accountButton'),logout:$('logoutBtn'),auth:$('authModal'),authForm:$('authForm'),email:$('authEmail'),password:$('authPassword'),authError:$('authError'),authTitle:$('authTitle'),authSubmit:$('authSubmit'),switchAuth:$('switchAuth'),uploadProgress:$('uploadProgress'),uploadProgressText:$('uploadProgressText'),uploadProgressPct:$('uploadProgressPct'),uploadProgressBar:$('uploadProgressBar')};
+function esc(v){return String(v??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\\':'&quot;',"'":'&#39;'}[c]));}
 function date(v){return v?new Intl.DateTimeFormat('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date(v+'T12:00:00')):'Sin fecha';}
+function fullDateTime(v){return new Intl.DateTimeFormat('es-ES',{weekday:'long',day:'2-digit',month:'long'}).format(new Date(v));}
 function count(a,b){const x=Number(String(a||'').match(/\d+/)?.[0]),y=Number(String(b||'').match(/\d+/)?.[0]);return Number.isFinite(x)&&Number.isFinite(y)&&y>=x?y-x+1:0;}
 function status(t){E.status.innerHTML='<i></i> '+esc(t);}
 function err(t){E.error.textContent=t;E.error.classList.remove('hidden');}
-function toast(t){const n=document.createElement('div');n.className='toast';n.textContent=t;document.body.appendChild(n);setTimeout(()=>n.remove(),2500);}
-function days(){return [...E.days.querySelectorAll('input:checked')].map(x=>Number(x.value));}
-function renderDays(selected=[]){E.days.innerHTML=DAY_NAMES.map((n,i)=>`<label class="day-option"><input type="checkbox" value="${i}" ${selected.includes(i)?'checked':''}><span>${DAY_SHORT[i]}<br><small>${n}</small></span></label>`).join('');}
+function toast(t){const n=document.createElement('div');n.className='toast';n.textContent=t;document.body.appendChild(n);setTimeout(()=>n.remove(),2800);}
+function formatBytes(bytes){if(bytes<1024*1024)return `${Math.round(bytes/1024)} KB`;return `${(bytes/1024/1024).toFixed(1)} MB`;}
+function setUploadProgress(percent,text){const p=Math.max(0,Math.min(100,Math.round(percent)));E.uploadProgress.classList.remove('hidden');E.uploadProgressText.textContent=text;E.uploadProgressPct.textContent=p+'%';E.uploadProgressBar.style.width=p+'%';}
+function hideUploadProgress(){E.uploadProgress.classList.add('hidden');E.uploadProgressBar.style.width='0%';}
+function cleanName(n){return String(n).normalize('NFKD').replace(/[^\w.\- ]/g,'').trim().replace(/\s+/g,'-').slice(-120)||'documento.pdf';}
+function nextStudyDate(from=new Date()){
+  const d=new Date(from);d.setHours(12,0,0,0);
+  for(let i=0;i<14;i++){if(STUDY_DAYS.includes(d.getDay()))return new Date(d);d.setDate(d.getDate()+1);}
+}
+function subjectPriority(s,allocated){
+  const exam=new Date(s.exam_date+'T23:59:59');
+  const days=Math.max(1,Math.ceil((exam-Date.now())/86400000));
+  const urgency=Math.max(0,90-days)/90;
+  const progress=Number(s.progress||0);
+  const fairness=1/(1+allocated);
+  return urgency*6+(100-progress)/100*3+fairness*2;
+}
 function render(){
   if(!state.user){E.subjects.innerHTML='<div class="empty"><strong>Inicia sesión para ver tus asignaturas.</strong><span>Tus datos y PDFs están protegidos por tu cuenta.</span></div>';E.next.innerHTML='<h2>Inicia sesión para preparar tu estudio.</h2><p>Tus asignaturas y sesiones quedarán asociadas a tu cuenta.</p>';E.bar.style.width='0%';E.pct.textContent='0%';E.studied.textContent='0';E.pending.textContent='0';E.exams.textContent='0';return;}
   if(!state.subjects.length)E.subjects.innerHTML='<div class="empty"><strong>Tu espacio de estudio está vacío.</strong><span>Añade una asignatura para empezar.</span></div>';
-  else E.subjects.innerHTML=state.subjects.map(s=>`<article class="subject-card"><div class="subject-top"><div><h3 class="subject-name">${esc(s.name)}</h3><p class="subject-exam">Examen · ${date(s.examDate)}</p></div><div class="subject-actions">${s.pdf_path?'<button class="icon-btn" data-a="pdf" data-id="'+s.id+'">PDF</button>':''}<button class="icon-btn" data-a="edit" data-id="${s.id}">✎</button><button class="icon-btn" data-a="delete" data-id="${s.id}">×</button></div></div><div class="subject-detail"><b>Temario:</b> ${esc(s.topic_start)} → ${esc(s.topic_end)}<br><b>Días:</b> ${(s.study_days||[]).map(d=>DAY_NAMES[d]).join(' · ')} · <b>Sesión:</b> ${s.session_minutes} min<br><b>PDF:</b> ${esc(s.pdf_filename||'Pendiente')}</div><div class="subject-bottom"><div class="progress-meta"><span>Progreso</span><b>${s.progress||0}%</b></div><div class="mini-progress"><div style="width:${s.progress||0}%"></div></div></div></article>`).join('');
+  else E.subjects.innerHTML=state.subjects.map(s=>`<article class="subject-card"><div class="subject-top"><div><h3 class="subject-name">${esc(s.name)}</h3><p class="subject-exam">Examen · ${date(s.exam_date)}</p></div><div class="subject-actions">${(s.pdf_path||s.pdf_chunks?.length)?'<button class="icon-btn" data-a="pdf" data-id="'+s.id+'">PDF</button>':''}<button class="icon-btn" data-a="edit" data-id="${s.id}">✎</button><button class="icon-btn" data-a="delete" data-id="${s.id}">×</button></div></div><div class="subject-detail"><b>Temario:</b> ${esc(s.topic_start)} → ${esc(s.topic_end)}<br><b>Semana:</b> Lunes 120 min · Jueves 120 min<br><b>PDF:</b> ${esc(s.pdf_filename||'Pendiente')}</div><div class="subject-bottom"><div class="progress-meta"><span>Progreso</span><b>${s.progress||0}%</b></div><div class="mini-progress"><div style="width:${s.progress||0}%"></div></div></div></article>`).join('');
   const p=state.subjects.length?Math.round(state.subjects.reduce((a,s)=>a+Number(s.progress||0),0)/state.subjects.length):0;E.bar.style.width=p+'%';E.pct.textContent=p+'%';
   E.studied.textContent=state.subjects.reduce((a,s)=>a+Math.round((s.progress||0)/100*count(s.topic_start,s.topic_end)),0);E.pending.textContent=state.subjects.reduce((a,s)=>{const n=count(s.topic_start,s.topic_end);return a+Math.max(0,n-Math.round((s.progress||0)/100*n));},0);E.exams.textContent=state.subjects.length;
-  if(state.subjects.length){const s=[...state.subjects].sort((a,b)=>new Date(a.exam_date)-new Date(b.exam_date))[0];E.next.innerHTML=`<h2>${esc(s.name)}</h2><p><strong>${esc(s.topic_start)} → ${esc(s.topic_end)}</strong> · ${s.session_minutes} min · ${(s.study_days||[]).map(d=>DAY_NAMES[d]).join(' · ')}</p><p>Sesión provisional. El planificador automático será el siguiente paso.</p>`;}
+  const upcoming=state.sessions.filter(x=>x.status==='planned').sort((a,b)=>new Date(a.scheduled_for)-new Date(b.scheduled_for))[0];
+  if(upcoming){const s=state.subjects.find(x=>x.id===upcoming.subject_id);E.next.innerHTML=`<h2>${esc(s?.name||'Sesión de estudio')}</h2><p><strong>${esc(fullDateTime(upcoming.scheduled_for))}</strong> · ${upcoming.duration_minutes} min</p><p>${esc(upcoming.notes||`${s?.topic_start||''} → ${s?.topic_end||''}`)}</p>`;}
+  else if(state.subjects.length)E.next.innerHTML='<h2>Plan preparado.</h2><p>No hay sesiones futuras pendientes. El plan se regenerará al añadir o modificar asignaturas.</p>';
 }
-async function load(){const r=await state.sb.from('subjects').select('*').order('exam_date',{ascending:true});if(r.error){console.error(r.error);toast('No se pudieron cargar las asignaturas.');return;}state.subjects=r.data||[];render();}
+async function loadSettings(){const r=await state.sb.from('study_settings').select('*').eq('user_id',state.user.id).maybeSingle();if(r.error){console.error(r.error);return;}if(r.data)state.settings=r.data;else{await state.sb.from('study_settings').insert({user_id:state.user.id,weekday_1:1,weekday_2:4,default_session_minutes:120});state.settings={weekday_1:1,weekday_2:4,default_session_minutes:120;}}}
+async function load(){const [r,sess]=await Promise.all([state.sb.from('subjects').select('*').order('exam_date',{ascending:true}),state.sb.from('study_sessions').select('*').eq('user_id',state.user.id).eq('status','planned').order('scheduled_for',{ascending:true})]);if(r.error){console.error(r.error);toast('No se pudieron cargar las asignaturas.');return;}if(sess.error)console.error(sess.error);state.subjects=r.data||[];state.sessions=sess.data||[];render();}
+async function saveWeeklySettings(){const r=await state.sb.from('study_settings').upsert({user_id:state.user.id,weekday_1:1,weekday_2:4,default_session_minutes:120},{onConflict:'user_id'});if(r.error)throw r.error;state.settings={user_id:state.user.id,weekday_1:1,weekday_2:4,default_session_minutes:120};}
+async function rebuildPlan(){
+  if(!state.user||!state.subjects.length)return;
+  await saveWeeklySettings();
+  const del=await state.sb.from('study_sessions').delete().eq('user_id',state.user.id).eq('status','planned');
+  if(del.error)throw del.error;
+  const exams=state.subjects.map(s=>new Date(s.exam_date+'T23:59:59').getTime());
+  const lastExam=Math.max(...exams);
+  const until=Math.min(lastExam,Date.now()+1000*60*60*24*180);
+  const allocations={};
+  state.subjects.forEach(s=>allocations[s.id]=0);
+  const rows=[];let cursor=nextStudyDate(new Date());
+  let guard=0;
+  while(cursor.getTime()<=until&&guard<200){
+    const eligible=state.subjects.filter(s=>new Date(s.exam_date+'T23:59:59').getTime()>=cursor.getTime());
+    if(!eligible.length)break;
+    const chosen=[...eligible].sort((a,b)=>subjectPriority(b,allocations[b.id])-subjectPriority(a,allocations[a.id])).slice(0,Math.min(2,eligible.length));
+    const minutes=Math.floor(DAILY_MINUTES/chosen.length);
+    chosen.forEach((s,i)=>{
+      const at=new Date(cursor);at.setHours(18+i,0,0,0);
+      allocations[s.id]++;
+      rows.push({user_id:state.user.id,subject_id:s.id,scheduled_for:at.toISOString(),duration_minutes:minutes,topic_ids:[],session_type:'study',status:'planned',notes:`${s.topic_start} → ${s.topic_end} · Bloque de ${minutes} min`});
+    });
+    cursor.setDate(cursor.getDate()+1);cursor=nextStudyDate(cursor);guard++;
+  }
+  if(rows.length){const ins=await state.sb.from('study_sessions').insert(rows);if(ins.error)throw ins.error;}
+  await load();
+}
 function openAuth(){E.auth.classList.remove('hidden');document.body.style.overflow='hidden';setTimeout(()=>E.email.focus(),50);}
 function closeAuth(){E.auth.classList.add('hidden');if(E.modal.classList.contains('hidden'))document.body.style.overflow='';}
 function authMode(signup){state.signup=signup;E.authTitle.textContent=signup?'Crear tu cuenta':'Entrar en tu cuenta';E.authSubmit.textContent=signup?'Crear cuenta':'Entrar';E.switchAuth.textContent=signup?'Ya tengo cuenta':'Crear cuenta';E.authError.classList.add('hidden');}
 async function authSubmit(e){e.preventDefault();E.authError.classList.add('hidden');E.authSubmit.disabled=true;try{const r=state.signup?await state.sb.auth.signUp({email:E.email.value.trim(),password:E.password.value}):await state.sb.auth.signInWithPassword({email:E.email.value.trim(),password:E.password.value});if(r.error)throw r.error;if(state.signup&&!r.data.session){E.authError.textContent='Cuenta creada. Revisa tu email para confirmar y después inicia sesión.';E.authError.classList.remove('hidden');return;}closeAuth();}catch(x){E.authError.textContent=x.message||'No se pudo completar la operación.';E.authError.classList.remove('hidden');}finally{E.authSubmit.disabled=false;E.authSubmit.textContent=state.signup?'Crear cuenta':'Entrar';}}
-function openSubject(s=null){if(!state.user)return openAuth();state.editingId=s?.id||null;state.selectedPdf=null;E.form.reset();E.title.textContent=s?'Editar asignatura':'Configura tu asignatura';E.save.textContent=s?'Guardar cambios':'Guardar asignatura';E.id.value=s?.id||'';E.name.value=s?.name||'';E.exam.value=s?.exam_date||'';E.start.value=s?.topic_start||'';E.end.value=s?.topic_end||'';E.duration.value=s&&![90,105,120].includes(Number(s.session_minutes))?'custom':String(s?.session_minutes||105);E.custom.value=s?.session_minutes||105;E.customWrap.classList.toggle('hidden',E.duration.value!=='custom');E.fileName.textContent=s?.pdf_filename||'Ningún PDF seleccionado';renderDays(s?.study_days||[]);E.modal.classList.remove('hidden');document.body.style.overflow='hidden';}
-function closeSubject(){E.modal.classList.add('hidden');document.body.style.overflow='';state.editingId=null;state.selectedPdf=null;}
-function pickPdf(e){const f=e.target.files?.[0];if(!f)return;if(f.type!=='application/pdf')return err('Selecciona un PDF válido.');if(f.size>50*1024*1024)return err('El PDF no puede superar 50 MB.');state.selectedPdf=f;E.fileName.textContent=f.name;E.error.classList.add('hidden');}
-function cleanName(n){return String(n).normalize('NFKD').replace(/[^\w.\- ]/g,'').trim().replace(/\s+/g,'-').slice(-120)||'documento.pdf';}
-async function saveSubject(e){e.preventDefault();E.error.classList.add('hidden');const d=days();if(d.length!==2)return err('Selecciona exactamente 2 días de estudio.');const mins=E.duration.value==='custom'?Number(E.custom.value):Number(E.duration.value);if(!Number.isFinite(mins)||mins<30||mins>360)return err('La duración debe estar entre 30 y 360 minutos.');if(!E.name.value.trim()||!E.exam.value||!E.start.value.trim()||!E.end.value.trim())return err('Completa todos los campos obligatorios.');E.save.disabled=true;try{const old=state.subjects.find(x=>x.id===state.editingId);const row={user_id:state.user.id,name:E.name.value.trim(),exam_date:E.exam.value,topic_start:E.start.value.trim(),topic_end:E.end.value.trim(),topic_range_text:E.start.value.trim()+' → '+E.end.value.trim(),study_days:d,session_minutes:mins,progress:Number(old?.progress||0),detected_topics:old?.detected_topics||[],last_session_date:old?.last_session_date||null,next_review_date:old?.next_review_date||null};let id=state.editingId;if(id){const r=await state.sb.from('subjects').update(row).eq('id',id).eq('user_id',state.user.id).select('*').single();if(r.error)throw r.error;}else{const r=await state.sb.from('subjects').insert(row).select('*').single();if(r.error)throw r.error;id=r.data.id;}
-    if(state.selectedPdf){const path=state.user.id+'/'+id+'/'+Date.now()+'-'+cleanName(state.selectedPdf.name);const up=await state.sb.storage.from('study-pdfs').upload(path,state.selectedPdf,{contentType:'application/pdf',upsert:false});if(up.error)throw up.error;const u=await state.sb.from('subjects').update({pdf_path:path,pdf_filename:state.selectedPdf.name}).eq('id',id).eq('user_id',state.user.id);if(u.error)throw u.error;if(old?.pdf_path)await state.sb.storage.from('study-pdfs').remove([old.pdf_path]);}
-    closeSubject();await load();toast(state.editingId?'Asignatura actualizada':'Asignatura guardada');
-  }catch(x){console.error(x);err(x.message||'No se pudo guardar.');}finally{E.save.disabled=false;E.save.textContent=state.editingId?'Guardar cambios':'Guardar asignatura';}}
-async function del(id){const s=state.subjects.find(x=>x.id===id);if(!s||!confirm('¿Eliminar "'+s.name+'"?'))return;const r=await state.sb.from('subjects').delete().eq('id',id).eq('user_id',state.user.id);if(r.error)return toast('No se pudo eliminar.');if(s.pdf_path)await state.sb.storage.from('study-pdfs').remove([s.pdf_path]);await load();toast('Asignatura eliminada');}
-async function pdf(id){const s=state.subjects.find(x=>x.id===id);if(!s?.pdf_path)return;const r=await state.sb.storage.from('study-pdfs').createSignedUrl(s.pdf_path,600);if(r.error)return toast('No se pudo abrir el PDF.');window.open(r.data.signedUrl,'_blank','noopener,noreferrer');}
-$('addSubject').onclick=()=>openSubject();$('heroAdd').onclick=()=>openSubject();$('startBtn').onclick=()=>state.subjects.length?toast('El planificador automático llegará en el siguiente paso.'):openSubject();$('closeModal').onclick=closeSubject;$('cancelBtn').onclick=closeSubject;$('uploadBtn').onclick=()=>E.pdf.click();E.pdf.onchange=pickPdf;E.duration.onchange=()=>E.customWrap.classList.toggle('hidden',E.duration.value!=='custom');E.form.onsubmit=saveSubject;E.subjects.onclick=e=>{const b=e.target.closest('[data-a]');if(!b)return;if(b.dataset.a==='edit')openSubject(state.subjects.find(x=>x.id===b.dataset.id));if(b.dataset.a==='delete')del(b.dataset.id);if(b.dataset.a==='pdf')pdf(b.dataset.id)};E.modal.onclick=e=>{if(e.target===E.modal)closeSubject()};E.auth.onclick=e=>{if(e.target===E.auth)closeAuth()};E.account.onclick=openAuth;E.logout.onclick=()=>state.sb.auth.signOut();E.authForm.onsubmit=authSubmit;E.switchAuth.onclick=()=>authMode(!state.signup);$('closeAuth').onclick=closeAuth;
-(async()=>{renderDays();render();if(!window.supabase||!window.PABLO_STUDY_SUPABASE)return;state.sb=window.supabase.createClient(window.PABLO_STUDY_SUPABASE.url,window.PABLO_STUDY_SUPABASE.anonKey);status('Supabase · conectado');const r=await state.sb.auth.getSession();state.user=r.data.session?.user||null;if(state.user){E.account.textContent=state.user.email||'Mi cuenta';E.account.classList.remove('hidden');E.logout.classList.remove('hidden');await load();}else{openAuth();}state.sb.auth.onAuthStateChange(async(_e,s)=>{state.user=s?.user||null;if(state.user){E.account.textContent=state.user.email||'Mi cuenta';E.account.classList.remove('hidden');E.logout.classList.remove('hidden');closeAuth();await load();}else{E.account.classList.add('hidden');E.logout.classList.add('hidden');state.subjects=[];render();}});})();
+function openSubject(s=null){if(!state.user)return openAuth();state.editingId=s?.id||null;state.selectedPdf=null;E.form.reset();E.title.textContent=s?'Editar asignatura':'Configura tu asignatura';E.save.textContent=s?'Guardar cambios':'Guardar asignatura';E.id.value=s?.id||'';E.name.value=s?.name||'';E.exam.value=s?.exam_date||'';E.start.value=s?.topic_start||'';E.end.value=s?.topic_end||'';E.fileName.textContent=s?.pdf_filename?`${s.pdf_filename} · guardado`: 'Ningún PDF seleccionado';E.error.classList.add('hidden');hideUploadProgress();E.modal.classList.remove('hidden');document.body.style.overflow='hidden';}
+function closeSubject(){E.modal.classList.add('hidden');document.body.style.overflow='';state.editingId=null;state.selectedPdf=null;hideUploadProgress();}
+function pickPdf(e){const f=e.target.files?.[0];if(!f)return;if(f.type!=='application/pdf')return err('Selecciona un PDF válido.');state.selectedPdf=f;E.fileName.textContent=`${f.name} · ${formatBytes(f.size)}`;E.error.classList.add('hidden');}
+async function uploadPdf(file,id){
+  const base=state.user.id+'/'+id+'/'+Date.now()+'-'+cleanName(file.name);
+  if(file.size<=LARGE_FILE_LIMIT){setUploadProgress(5,'Subiendo PDF…');const up=await state.sb.storage.from('study-pdfs').upload(base,file,{contentType:'application/pdf',upsert:false});if(up.error)throw up.error;setUploadProgress(100,'PDF guardado correctamente');return {pdf_path:base,pdf_chunks:[]};}
+  const total=Math.ceil(file.size/CHUNK_SIZE),chunks=[];
+  for(let i=0;i<total;i++){
+    const start=i*CHUNK_SIZE,end=Math.min(file.size,start+CHUNK_SIZE),blob=file.slice(start,end),path=`${base}.part-${String(i+1).padStart(4,'0')}`;
+    setUploadProgress((i/total)*100,`Subiendo parte ${i+1} de ${total} · ${formatBytes(blob.size)}`);
+    const up=await state.sb.storage.from('study-pdfs').upload(path,blob,{contentType:'application/octet-stream',upsert:false});
+    if(up.error)throw new Error(`Error en la parte ${i+1}: ${up.error.message}`);
+    chunks.push({path,index:i,size:blob.size});
+    setUploadProgress(((i+1)/total)*100,`PDF grande · parte ${i+1} de ${total}`);
+  }
+  return {pdf_path:null,pdf_chunks:chunks};
+}
+async function saveSubject(e){
+  e.preventDefault();E.error.classList.add('hidden');const mins=120;
+  if(!E.name.value.trim()||!E.exam.value||!E.start.value.trim()||!E.end.value.trim())return err('Completa todos los campos obligatorios.');
+  E.save.disabled=true;
+  try{
+    const old=state.subjects.find(x=>x.id===state.editingId);
+    const row={user_id:state.user.id,name:E.name.value.trim(),exam_date:E.exam.value,topic_start:E.start.value.trim(),topic_end:E.end.value.trim(),topic_range_text:E.start.value.trim()+' → '+E.end.value.trim(),study_days:STUDY_DAYS,session_minutes:mins,progress:Number(old?.progress||0),detected_topics:old?.detected_topics||[],last_session_date:old?.last_session_date||null,next_review_date:old?.next_review_date||null};
+    let id=state.editingId;
+    if(id){const r=await state.sb.from('subjects').update(row).eq('id',id).eq('user_id',state.user.id).select('*').single();if(r.error)throw r.error;}
+    else{const r=await state.sb.from('subjects').insert(row).select('*').single();if(r.error)throw r.error;id=r.data.id;}
+    if(state.selectedPdf){
+      const uploaded=await uploadPdf(state.selectedPdf,id);
+      const u=await state.sb.from('subjects').update({pdf_path:uploaded.pdf_path,pdf_chunks:uploaded.pdf_chunks,pdf_filename:state.selectedPdf.name}).eq('id',id).eq('user_id',state.user.id);if(u.error)throw u.error;
+      if(old?.pdf_path)await state.sb.storage.from('study-pdfs').remove([old.pdf_path]);
+      if(old?.pdf_chunks?.length)await state.sb.storage.from('study-pdfs').remove(old.pdf_chunks.map(x=>x.path));
+    }
+    closeSubject();await load();await rebuildPlan();toast(state.editingId?'Asignatura actualizada y plan recalculado':'Asignatura guardada y plan creado');
+  }catch(x){console.error(x);err(x.message||'No se pudo guardar.');}finally{E.save.disabled=false;E.save.textContent=state.editingId?'Guardar cambios':'Guardar asignatura';}
+}
+async function del(id){const s=state.subjects.find(x=>x.id===id);if(!s||!confirm('¿Eliminar "'+s.name+'"?'))return;const r=await state.sb.from('subjects').delete().eq('id',id).eq('user_id',state.user.id);if(r.error)return toast('No se pudo eliminar.');if(s.pdf_path)await state.sb.storage.from('study-pdfs').remove([s.pdf_path]);if(s.pdf_chunks?.length)await state.sb.storage.from('study-pdfs').remove(s.pdf_chunks.map(x=>x.path));await load();await rebuildPlan();toast('Asignatura eliminada');}
+async function pdf(id){
+  const s=state.subjects.find(x=>x.id===id);if(!s)return;
+  try{
+    let blob;
+    if(s.pdf_chunks?.length){
+      const ordered=[...s.pdf_chunks].sort((a,b)=>a.index-b.index);const parts=[];
+      for(let i=0;i<ordered.length;i++){const r=await state.sb.storage.from('study-pdfs').download(ordered[i].path);if(r.error)throw r.error;parts.push(r.data);}
+      blob=new Blob(parts,{type:'application/pdf'});
+    }else if(s.pdf_path){const r=await state.sb.storage.from('study-pdfs').download(s.pdf_path);if(r.error)throw r.error;blob=r.data;}else return;
+    window.open(URL.createObjectURL(blob),'_blank','noopener,noreferrer');
+  }catch(x){console.error(x);toast('No se pudo abrir el PDF.');}
+}
+$('addSubject').onclick=()=>openSubject();$('heroAdd').onclick=()=>openSubject();$('startBtn').onclick=()=>state.subjects.length?toast('Tu plan ya está generado para lunes y jueves.'):openSubject();$('closeModal').onclick=closeSubject;$('cancelBtn').onclick=closeSubject;$('uploadBtn').onclick=()=>E.pdf.click();E.pdf.onchange=pickPdf;E.form.onsubmit=saveSubject;E.subjects.onclick=e=>{const b=e.target.closest('[data-a]');if(!b)return;if(b.dataset.a==='edit')openSubject(state.subjects.find(x=>x.id===b.dataset.id));if(b.dataset.a==='delete')del(b.dataset.id);if(b.dataset.a==='pdf')pdf(b.dataset.id)};E.modal.onclick=e=>{if(e.target===E.modal)closeSubject()};E.auth.onclick=e=>{if(e.target===E.auth)closeAuth()};E.account.onclick=openAuth;E.logout.onclick=()=>state.sb.auth.signOut();E.authForm.onsubmit=authSubmit;E.switchAuth.onclick=()=>authMode(!state.signup);$('closeAuth').onclick=closeAuth;
+(async()=>{
+  render();
+  if(!window.supabase||!window.PABLO_STUDY_SUPABASE)return;
+  state.sb=window.supabase.createClient(window.PABLO_STUDY_SUPABASE.url,window.PABLO_STUDY_SUPABASE.anonKey);status('Supabase · conectado');
+  const r=await state.sb.auth.getSession();state.user=r.data.session?.user||null;
+  if(state.user){E.account.textContent=state.user.email||'Mi cuenta';E.account.classList.remove('hidden');E.logout.classList.remove('hidden');await loadSettings();await load();if(!state.sessions.length&&state.subjects.length)await rebuildPlan();}
+  else openAuth();
+  state.sb.auth.onAuthStateChange(async(_e,s)=>{state.user=s?.user||null;if(state.user){E.account.textContent=state.user.email||'Mi cuenta';E.account.classList.remove('hidden');E.logout.classList.remove('hidden');closeAuth();await loadSettings();await load();if(!state.sessions.length&&state.subjects.length)await rebuildPlan();}else{E.account.classList.add('hidden');E.logout.classList.add('hidden');state.subjects=[];state.sessions=[];render();}});
+})();
