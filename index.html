@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pablo Study</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <p class="eyebrow">PABLO STUDY</p>
+        <h1>Tu estudio, organizado automáticamente.</h1>
+        <p class="subtitle">Añade tus asignaturas, exámenes y apuntes. El sistema se encargará de convertirlos en un plan de estudio.</p>
+      </div>
+      <div class="status"><span></span> Sistema preparado</div>
+    </header>
+
+    <section class="today card">
+      <div>
+        <p class="label">PRÓXIMA SESIÓN</p>
+        <h2>Aún no hay una sesión programada</h2>
+        <p>Aquí aparecerá automáticamente lo que tengas que estudiar.</p>
+      </div>
+      <button id="startBtn">Configurar estudio</button>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <div class="section-head"><h3>Mis asignaturas</h3><button class="ghost" id="addSubject">+ Añadir</button></div>
+        <div id="subjects" class="empty">Todavía no has añadido asignaturas.</div>
+      </div>
+      <div class="card">
+        <div class="section-head"><h3>Progreso</h3></div>
+        <div class="progress-wrap"><div class="progress"><div id="progressBar"></div></div><strong id="progressText">0%</strong></div>
+        <p class="muted">El progreso se actualizará cuando empieces a estudiar.</p>
+      </div>
+    </section>
+
+    <section class="card roadmap">
+      <p class="label">CÓMO FUNCIONARÁ</p>
+      <div class="steps">
+        <div><b>01</b><span>Subes tus PDFs</span></div>
+        <div><b>02</b><span>Indicas exámenes y temas</span></div>
+        <div><b>03</b><span>La IA crea tu plan</span></div>
+        <div><b>04</b><span>Genera cada sesión en PDF</span></div>
+      </div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>
