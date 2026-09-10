@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#f5f6f8">
   <title>Pablo Study</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="extra.css">
 </head>
 <body>
   <div class="shell">
@@ -17,116 +18,16 @@
         <button class="ghost small hidden" id="logoutBtn">Cerrar sesión</button>
       </div>
     </header>
-
     <main class="app">
-      <section class="hero">
-        <div>
-          <p class="eyebrow">TU CENTRO DE ESTUDIO</p>
-          <h1>Estudia menos a ciegas.<br><em>Avanza con un plan.</em></h1>
-          <p class="subtitle">Tus asignaturas, exámenes y sesiones organizados en un solo lugar.</p>
-        </div>
-        <button class="primary" id="heroAdd">+ Añadir asignatura</button>
-      </section>
-
-      <section class="next-session card">
-        <div class="next-copy">
-          <p class="label">PRÓXIMA SESIÓN</p>
-          <div id="nextSession">
-            <h2>Todavía no tienes ninguna sesión preparada.</h2>
-            <p>Cuando conectemos el planificador inteligente, aquí aparecerá automáticamente lo que tienes que estudiar.</p>
-          </div>
-        </div>
-        <button class="secondary" id="startBtn">Ver plan</button>
-      </section>
-
-      <section class="section-block">
-        <div class="section-head">
-          <div><p class="label">ORGANIZACIÓN</p><h2 class="section-title">Mis asignaturas</h2></div>
-          <button class="ghost" id="addSubject">+ Añadir</button>
-        </div>
-        <div id="subjects" class="subject-grid"></div>
-      </section>
-
-      <section class="overview-grid">
-        <div class="card overview-card">
-          <div class="section-head compact"><div><p class="label">PROGRESO GENERAL</p><h2 class="section-title">Tu avance</h2></div><strong id="progressText">0%</strong></div>
-          <div class="progress"><div id="progressBar"></div></div>
-          <div class="stats-row">
-            <div><strong id="studiedCount">0</strong><span>estudiados</span></div>
-            <div><strong id="pendingCount">0</strong><span>pendientes</span></div>
-            <div><strong id="examCount">0</strong><span>exámenes</span></div>
-          </div>
-        </div>
-
-        <div class="card plan-card">
-          <div class="section-head compact"><div><p class="label">PLAN SEMANAL</p><h2 class="section-title">Tu semana</h2></div><span class="coming">Fijo</span></div>
-          <p><strong>2 horas el lunes + 2 horas el jueves.</strong> Son 4 horas de estudio en total por semana, compartidas entre todas tus asignaturas.</p>
-          <div class="calendar-placeholder"><span>◷</span><div><strong>Lunes · 120 min</strong><small>Jueves · 120 min · El sistema reparte el tiempo entre asignaturas.</small></div></div>
-        </div>
-      </section>
-
-      <section class="architecture card">
-        <div class="section-head compact"><div><p class="label">PREPARADO PARA CRECER</p><h2 class="section-title">La IA será tu tutor</h2></div></div>
-        <div class="architecture-grid">
-          <div><span>01</span><strong>Analizar PDFs</strong><p>Detectar temas, conceptos y dificultad.</p></div>
-          <div><span>02</span><strong>Crear sesiones</strong><p>Distribuir contenido según tu calendario.</p></div>
-          <div><span>03</span><strong>Repasar</strong><p>Priorizar lo que todavía no dominas.</p></div>
-          <div><span>04</span><strong>Resolver dudas</strong><p>Responder usando principalmente tus apuntes.</p></div>
-        </div>
-      </section>
+      <section class="hero"><div><p class="eyebrow">TU CENTRO DE ESTUDIO</p><h1>Estudia menos a ciegas.<br><em>Avanza con un plan.</em></h1><p class="subtitle">Tus asignaturas, exámenes y sesiones organizados en un solo lugar.</p></div><button class="primary" id="heroAdd">+ Añadir asignatura</button></section>
+      <section class="next-session card"><div class="next-copy"><p class="label">PRÓXIMA SESIÓN</p><div id="nextSession"><h2>Todavía no tienes ninguna sesión preparada.</h2><p>Cuando conectemos el planificador inteligente, aquí aparecerá automáticamente lo que tienes que estudiar.</p></div></div><button class="secondary" id="startBtn">Ver plan</button></section>
+      <section class="section-block"><div class="section-head"><div><p class="label">ORGANIZACIÓN</p><h2 class="section-title">Mis asignaturas</h2></div><button class="ghost" id="addSubject">+ Añadir</button></div><div id="subjects" class="subject-grid"></div></section>
+      <section class="overview-grid"><div class="card overview-card"><div class="section-head compact"><div><p class="label">PROGRESO GENERAL</p><h2 class="section-title">Tu avance</h2></div><strong id="progressText">0%</strong></div><div class="progress"><div id="progressBar"></div></div><div class="stats-row"><div><strong id="studiedCount">0</strong><span>estudiados</span></div><div><strong id="pendingCount">0</strong><span>pendientes</span></div><div><strong id="examCount">0</strong><span>exámenes</span></div></div></div><div class="card plan-card"><div class="section-head compact"><div><p class="label">PLAN SEMANAL</p><h2 class="section-title">Tu semana</h2></div><span class="coming">Fijo</span></div><p><strong>2 horas el lunes + 2 horas el jueves.</strong> Son 4 horas de estudio en total por semana, compartidas entre todas tus asignaturas.</p><div class="calendar-placeholder"><span>◷</span><div><strong>Lunes · 120 min</strong><small>Jueves · 120 min · El sistema reparte el tiempo entre asignaturas.</small></div></div></div></section>
+      <section class="architecture card"><div class="section-head compact"><div><p class="label">PREPARADO PARA CRECER</p><h2 class="section-title">La IA será tu tutor</h2></div></div><div class="architecture-grid"><div><span>01</span><strong>Analizar PDFs</strong><p>Detectar temas, conceptos y dificultad.</p></div><div><span>02</span><strong>Crear sesiones</strong><p>Distribuir contenido según tu calendario.</p></div><div><span>03</span><strong>Repasar</strong><p>Priorizar lo que todavía no dominas.</p></div><div><span>04</span><strong>Resolver dudas</strong><p>Responder usando principalmente tus apuntes.</p></div></div></section>
     </main>
   </div>
-
-  <div class="modal-backdrop hidden" id="authModal">
-    <div class="modal auth-modal" role="dialog" aria-modal="true">
-      <div class="modal-header">
-        <div><p class="label">PABLO STUDY</p><h2 id="authTitle">Entrar en tu cuenta</h2></div>
-        <button class="close" id="closeAuth" aria-label="Cerrar">×</button>
-      </div>
-      <p class="auth-intro">Tus asignaturas y PDFs se guardarán de forma privada en tu cuenta.</p>
-      <form id="authForm">
-        <label class="field">Email<input id="authEmail" type="email" autocomplete="email" required placeholder="tu@email.com"></label>
-        <label class="field">Contraseña<input id="authPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="Mínimo 6 caracteres"></label>
-        <div class="form-error hidden" id="authError"></div>
-        <div class="modal-actions auth-actions"><button type="button" class="ghost" id="switchAuth">Crear cuenta</button><button type="submit" class="primary" id="authSubmit">Entrar</button></div>
-      </form>
-    </div>
-  </div>
-
-  <div class="modal-backdrop hidden" id="modalBackdrop">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <div class="modal-header">
-        <div><p class="label">NUEVA ASIGNATURA</p><h2 id="modalTitle">Configura tu asignatura</h2></div>
-        <button class="close" id="closeModal" aria-label="Cerrar">×</button>
-      </div>
-      <form id="subjectForm">
-        <input type="hidden" id="subjectId">
-        <div class="form-grid">
-          <label class="field full">Nombre de la asignatura<input id="name" type="text" placeholder="Ej. Bioquímica" required maxlength="100"></label>
-          <label class="field">Fecha del examen<input id="examDate" type="date" required></label>
-          <label class="field">Tema inicial<input id="startTopic" type="text" placeholder="Tema 1" required maxlength="50"></label>
-          <label class="field">Tema final<input id="endTopic" type="text" placeholder="Tema 8" required maxlength="50"></label>
-        </div>
-
-        <div class="week-rule">
-          <div><strong>Plan semanal fijo</strong><span>2 horas totales el lunes + 2 horas totales el jueves.</span></div>
-          <b>L · 120 min</b><b>J · 120 min</b>
-        </div>
-
-        <div class="upload-box" id="uploadBox">
-          <input id="pdf" type="file" accept="application/pdf" hidden>
-          <button type="button" class="upload-button" id="uploadBtn">↑ Seleccionar PDF</button>
-          <div><strong id="fileName">Ningún PDF seleccionado</strong><small>Los PDF grandes se guardan automáticamente en partes privadas. Tú sigues teniendo un único PDF.</small></div>
-        </div>
-        <div class="upload-progress hidden" id="uploadProgress"><div><span id="uploadProgressText">Preparando subida…</span><b id="uploadProgressPct">0%</b></div><div class="progress"><div id="uploadProgressBar"></div></div></div>
-        <div class="form-error hidden" id="formError"></div>
-        <div class="modal-actions"><button type="button" class="ghost" id="cancelBtn">Cancelar</button><button type="submit" class="primary" id="saveBtn">Guardar asignatura</button></div>
-      </form>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="supabase-config.js"></script>
-  <script src="app.js"></script>
+  <div class="modal-backdrop hidden" id="authModal"><div class="modal auth-modal" role="dialog" aria-modal="true"><div class="modal-header"><div><p class="label">PABLO STUDY</p><h2 id="authTitle">Entrar en tu cuenta</h2></div><button class="close" id="closeAuth" aria-label="Cerrar">×</button></div><p class="auth-intro">Tus asignaturas y PDFs se guardarán de forma privada en tu cuenta.</p><form id="authForm"><label class="field">Email<input id="authEmail" type="email" autocomplete="email" required placeholder="tu@email.com"></label><label class="field">Contraseña<input id="authPassword" type="password" autocomplete="current-password" required minlength="6" placeholder="Mínimo 6 caracteres"></label><div class="form-error hidden" id="authError"></div><div class="modal-actions auth-actions"><button type="button" class="ghost" id="switchAuth">Crear cuenta</button><button type="submit" class="primary" id="authSubmit">Entrar</button></div></form></div></div>
+  <div class="modal-backdrop hidden" id="modalBackdrop"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-header"><div><p class="label">NUEVA ASIGNATURA</p><h2 id="modalTitle">Configura tu asignatura</h2></div><button class="close" id="closeModal" aria-label="Cerrar">×</button></div><form id="subjectForm"><input type="hidden" id="subjectId"><div class="form-grid"><label class="field full">Nombre de la asignatura<input id="name" type="text" placeholder="Ej. Bioquímica" required maxlength="100"></label><label class="field">Fecha del examen<input id="examDate" type="date" required></label><label class="field">Tema inicial<input id="startTopic" type="text" placeholder="Tema 1" required maxlength="50"></label><label class="field">Tema final<input id="endTopic" type="text" placeholder="Tema 8" required maxlength="50"></label></div><div class="week-rule"><div><strong>Plan semanal fijo</strong><span>2 horas totales el lunes + 2 horas totales el jueves.</span></div><b>L · 120 min</b><b>J · 120 min</b></div><div class="upload-box" id="uploadBox"><input id="pdf" type="file" accept="application/pdf" hidden><button type="button" class="upload-button" id="uploadBtn">↑ Seleccionar PDF</button><div><strong id="fileName">Ningún PDF seleccionado</strong><small>Los PDF grandes se guardan automáticamente en partes privadas. Tú sigues teniendo un único PDF.</small></div></div><div class="upload-progress hidden" id="uploadProgress"><div><span id="uploadProgressText">Preparando subida…</span><b id="uploadProgressPct">0%</b></div><div class="progress"><div id="uploadProgressBar"></div></div></div><div class="form-error hidden" id="formError"></div><div class="modal-actions"><button type="button" class="ghost" id="cancelBtn">Cancelar</button><button type="submit" class="primary" id="saveBtn">Guardar asignatura</button></div></form></div></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js"></script><script src="app.js"></script>
 </body>
 </html>
